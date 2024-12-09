@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mačičková hra pre najlepšiu kamarátku</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #ffe6f2;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            width: 2000px;
+            height: 1500px;
+            position: relative;
+            background: linear-gradient(45deg, #ffe6f2 25%, #ffd9eb 25%, #ffd9eb 50%, #ffe6f2 50%, #ffe6f2 75%, #ffd9eb 75%, #ffd9eb 100%);
+            background-size: 40px 40px;
+        }
+        #viewport {
+            width: 100vw;
+            height: 100vh;
+            overflow: scroll;
+            position: relative;
+        }
+        #cat {
+            width: 50px;
+            height: 50px;
+            position: absolute;
+            left: 100px;
+            top: 100px;
+            background-color: #FF69B4;  /* ružová farba pre lepšiu viditeľnosť */
+            border-radius: 25px;
+            z-index: 1000;
+        }
+        #cat::after {
+            content: "🐱";  /* emoji mačičky */
+            font-size: 30px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .photo {
+            width: 100px;
+            height: 100px;
+            position: absolute;
+            background: #87CEEB;  /* svetlomodrá farba pre lepšiu viditeľnosť */
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        .photo::after {
+            content: "📷";  /* emoji fotoaparátu */
+            font-size: 40px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .heart {
+            position: absolute;
+            color: red;
+            font-size: 40px;
+            animation: fadeOut 1s forwards;
+            z-index: 500;
+            pointer-events: none;
+        }
+        #score {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 2000;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: scale(1) translateY(0); }
+            100% { opacity: 0; transform: scale(1.5) translateY(-20px); }
+        }
+    </style>
+</head>
+<body>
+    <div id="viewport">
+        <div id="game-container">
+            <div id="cat"></div>
+        </div>
+        <div id="score">Skóre: <span id="score-value">0</span></div>
+    </div>
+
+    <script>
+        const cat = document.getElementById('cat');
+        const container = document.getElementById('game-container');
+        const viewport = document.getElementById('viewport');
+        const scoreValue = document.getElementById('score-value');
+        let score = 0;
+        let photos = [];
+        
+        // Pozícia mačky a rýchlosť pohybu
+        let catX = 100;
+        let catY = 100;
+        const SPEED = 5;
+        const keys = {};
+
+        // Vytvorenie fotiek
+        function createPhotos() {
+            const photoCount = 10;
+            for(let i = 0; i < photoCount; i++) {
+                const photo = document.createElement('div');
+                photo.className = 'photo';
+                photo.style.left = Math.random() * (container.offsetWidth - 100) + 'px';
+                photo.style.top = Math.random() * (container.offsetHeight - 100) + 'px';
+                container.appendChild(photo);
+                photos.push(photo);
+            }
+        }
+
+        // Sledovanie stlačených kláves
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            e.preventDefault(); // Zabráni scrollovaniu pomocou šípok
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // Aktualizácia pozície mačky a scrollovanie
+        function updateGame() {
+            // Pohyb mačky
+            if(keys['ArrowLeft']) catX -= SPEED;
+            if(keys['ArrowRight']) catX += SPEED;
+            if(keys['ArrowUp']) catY -= SPEED;
+            if(keys['ArrowDown']) catY += SPEED;
+
+            // Hranice mapy
+            catX = Math.max(0, Math.min(catX, container.offsetWidth - 50));
+            catY = Math.max(0, Math.min(catY, container.offsetHeight - 50));
+
+            // Aktualizácia pozície mačky
+            cat.style.left = catX + 'px';
+            cat.style.top = catY + 'px';
+
+            // Scrollovanie viewportu za mačkou
+            viewport.scrollTo({
+                left: catX - viewport.offsetWidth / 2 + 25,
+                top: catY - viewport.offsetHeight / 2 + 25,
+                behavior: 'smooth'
+            });
+
+            // Kontrola kolízie s fotkami
+            photos.forEach(photo => {
+                if(photo.style.display !== 'none') {
+                    const catRect = {
+                        x: catX,
+                        y: catY,
+                        width: 50,
+                        height: 50
+                    };
+                    const photoRect = {
+                        x: parseInt(photo.style.left),
+                        y: parseInt(photo.style.top),
+                        width: 100,
+                        height: 100
+                    };
+                    
+                    if(isColliding(catRect, photoRect)) {
+                        collectPhoto(photo);
+                    }
+                }
+            });
+
+            requestAnimationFrame(updateGame);
+        }
+
+        // Kontrola kolízie
+        function isColliding(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Zber fotky
+        function collectPhoto(photo) {
+            if(photo.style.display === 'none') return;
+            photo.style.display = 'none';
+            createHeart(photo.style.left, photo.style.top);
+            score++;
+            scoreValue.textContent = score;
+            
+            // Ak sú všetky fotky zozbierané, vytvor nové
+            if(photos.every(p => p.style.display === 'none')) {
+                setTimeout(() => {
+                    photos.forEach(p => p.remove());
+                    photos = [];
+                    createPhotos();
+                }, 1000);
+            }
+        }
+
+        // Vytvorenie srdiecka
+        function createHeart(left, top) {
+            const heart = document.createElement('div');
+            heart.className = 'heart';
+            heart.innerHTML = '❤';
+            heart.style.left = left;
+            heart.style.top = top;
+            container.appendChild(heart);
+            
+            setTimeout(() => heart.remove(), 1000);
+        }
+
+        // Štart hry
+        createPhotos();
+        updateGame();
+    </script>
+</body>
+</html>
